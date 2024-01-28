@@ -30,7 +30,7 @@ fn main() {
             );
         }
 
-        // Print RAM information on new line
+        // Print RAM information on new line..
         println!(
             "RAM: {}/{} GB",
             format!(
