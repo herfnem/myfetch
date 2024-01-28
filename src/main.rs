@@ -12,7 +12,7 @@ fn main() {
     println!(": {}", sysinfo::System::host_name().unwrap().cyan());
 
     loop {
-        // Refresh CPU and memory information
+        // Refresh CPU and memory information...
         sys.refresh_all();
 
         // Move cursor to start of line....
