@@ -1,10 +1,9 @@
-name: Rust CI
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   release:
@@ -25,28 +24,16 @@ jobs:
       - name: Install stable toolchain
         run: rustup toolchain install stable --profile minimal
 
-      - name: Add aarch64 target
-        if: contains(fromJson('["aarch64-unknown-linux-gnu", "aarch64-apple-darwin", "aarch64-pc-windows-msvc"]'), matrix.target)
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Install gcc-aarch64-linux-gnu
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq gcc-aarch64-linux-gnu
-
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
       - name: Build
-        env:
-          YAZI_GEN_COMPLETIONS: true
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: /usr/bin/aarch64-linux-gnu-gcc
+        # env:
+        #   YAZI_GEN_COMPLETIONS: true
+        #   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: /usr/bin/aarch64-linux-gnu-gcc
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-
-      - name: Pack artifacts [Linux & macOS]
-        if: matrix.os == 'ubuntu-latest'
+      - name: Pack artifacts
         env:
           TARGET_NAME: myfetch-${{ matrix.target }}
         run: |
@@ -62,5 +49,4 @@ jobs:
           draft: true
           files: |
             myfetch-${{ matrix.target }}.zip
-            
           generate_release_notes: true
