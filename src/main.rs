@@ -15,7 +15,7 @@ fn main() {
         // Refresh CPU and memory information
         sys.refresh_all();
 
-        // Move cursor to start of line..
+        // Move cursor to start of line....
         print!("\r");
 
         // Print CPU usage for each core on the same line
