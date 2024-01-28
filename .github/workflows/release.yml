@@ -64,3 +64,12 @@ jobs:
           files: |
             myfetch-${{ matrix.target }}.zip
           generate_release_notes: true
+
+      - name: Generate Release Notes
+        uses: release-drafter/release-drafter@v5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          config-name: release-drafter.yml
+        #   disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
