@@ -42,6 +42,12 @@ jobs:
           cp README.md LICENSE $TARGET_NAME
           zip -r $TARGET_NAME.zip $TARGET_NAME
 
+      - name: Generate Release Notes
+        uses: release-drafter/release-drafter@v5
+        with:
+          token: ${{ secrets.TOKEN }}
+          config-path: .github/release-drafter.yml
+
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
