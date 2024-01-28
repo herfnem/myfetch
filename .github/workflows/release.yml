@@ -46,13 +46,12 @@ jobs:
 
 
       - name: Pack artifacts [Linux & macOS]
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        if: matrix.os == 'ubuntu-latest'
         env:
           TARGET_NAME: myfetch-${{ matrix.target }}
         run: |
           mkdir $TARGET_NAME
           cp target/${{ matrix.target }}/release/myfetch $TARGET_NAME
-          cp -r myfetch-config/completions $TARGET_NAME
           cp README.md LICENSE $TARGET_NAME
           zip -r $TARGET_NAME.zip $TARGET_NAME
 
