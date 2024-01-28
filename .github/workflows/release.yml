@@ -4,8 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
-  release:
-    types: [published]
+    branches: [main]
+
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#   release:
+#     types: [published]
 
 jobs:
   build:
