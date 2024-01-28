@@ -1,51 +1,77 @@
-name: Build and Release
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
+  build-and-upload:
+    name: Build and upload
+    runs-on: $\{\{ matrix.os \}\}
+
+    strategy:
+      matrix:
+        # You can add more, for any target you'd like!
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
 
     steps:
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Check out code
-        uses: actions/checkout@v2
+      - name: Get the release version from the tag
+        shell: bash
+        run: echo "VERSION=$\{GITHUB_REF#refs/tags/\}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        # Or @nightly if you want
+        uses: dtolnay/rust-toolchain@stable
+        # Arguments to pass in
+        with:
+          # Make Rust compile to our target (defined in the matrix)
+          targets: $\{\{ matrix.target \}\}
 
       - name: Build
-        run: cargo build --release
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Set up Git
-        uses: actions/checkout@v2
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        uses: actions-rs/cargo@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          use-cross: true
+          command: build
+          args: --verbose --release --target $\{\{ matrix.target \}\}
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+      - name: Build archive
+        shell: bash
+        run: |
+          # Replace with the name of your binary
+          binary_name="<BINARY_NAME>"
+
+          dirname="$binary_name-$\{\{ env.VERSION \}\}-$\{\{ matrix.target \}\}"
+          mkdir "$dirname"
+          if [ "$\{\{ matrix.os \}\}" = "windows-latest" ]; then
+            mv "target/$\{\{ matrix.target \}\}/release/$binary_name.exe" "$dirname"
+          else
+            mv "target/$\{\{ matrix.target \}\}/release/$binary_name" "$dirname"
+          fi
+
+          if [ "$\{\{ matrix.os \}\}" = "windows-latest" ]; then
+            7z a "$dirname.zip" "$dirname"
+            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
+          else
+            tar -czf "$dirname.tar.gz" "$dirname"
+            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/release/myfetch
-          asset_name: myfetch
-          asset_content_type: application/octet-stream
+          files: |
+            $\{\{ env.ASSET \}\}
