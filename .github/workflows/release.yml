@@ -6,55 +6,65 @@ on:
   pull_request:
     branches: [main]
 
-# on:
-#   push:
-#     branches: [main]
-#   pull_request:
-#   release:
-#     types: [published]
-
-
 jobs:
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3    
-      - name: Build
-        run: cargo build --target=x86_64-unknown-linux-gnu --release
-
-  test:
-    runs-on: ubuntu-latest    
-    steps:
-      - uses: actions/checkout@v3
-      - name: Test
-        run: cargo test --target=x86_64-unknown-linux-gnu
-
   release:
-    needs: [build, test]
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Build Release
-        run: cargo build --target=x86_64-unknown-linux-gnu --release  
-        
-      - name: Create Release Artifact
-        run: tar cvzf release.tar.gz target/x86_64-unknown-linux-gnu/release/myfetch
 
-      - name: Upload Release Artifact
-        uses: actions/upload-release-asset@v3
+      - name: Install stable toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Add aarch64 target
+        if: contains(fromJson('["aarch64-unknown-linux-gnu", "aarch64-apple-darwin", "aarch64-pc-windows-msvc"]'), matrix.target)
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install gcc-aarch64-linux-gnu
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq gcc-aarch64-linux-gnu
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release.tar.gz
-          asset_name: release.tar.gz
-          asset_content_type: application/gzip
+          YAZI_GEN_COMPLETIONS: true
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: /usr/bin/aarch64-linux-gnu-gcc
+        run: cargo build --release --locked --target ${{ matrix.target }}
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v3
-        
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v3
+      - name: Build snap
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: snapcore/action-build@v1
+
+      - name: Pack artifacts [Linux & macOS]
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        env:
+          TARGET_NAME: myfetch-${{ matrix.target }}
+        run: |
+          mkdir $TARGET_NAME
+          cp target/${{ matrix.target }}/release/myfetch $TARGET_NAME
+          cp -r myfetch-config/completions $TARGET_NAME
+          cp README.md LICENSE $TARGET_NAME
+          zip -r $TARGET_NAME.zip $TARGET_NAME
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          files: |
+            myfetch-${{ matrix.target }}.zip
+            myfetch*.snap
+          generate_release_notes: true
