@@ -41,12 +41,14 @@ jobs:
           cp target/${{ matrix.target }}/release/myfetch $TARGET_NAME
           cp README.md LICENSE $TARGET_NAME
           zip -r $TARGET_NAME.zip $TARGET_NAME
-
+          
       - name: Generate Release Notes
         uses: release-drafter/release-drafter@v5
         with:
-          token: ${{ secrets.TOKEN }}
-          config-path: .github/release-drafter.yml
+          config-name: release-drafter.yml
+        #   disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
